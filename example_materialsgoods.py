@@ -16,16 +16,18 @@ from qap import QAP
 # Data
 # Source: http://vlado.fmf.uni-lj.si/pub/networks/data/ucinet/ucidata.htm
 #######################################################################
-X =  minfo = np.loadtxt('data/friendship.dat')
-Y = np.loadtxt('data/advice.dat')
-utils.printf('Friendship: \n{}'.format(X))
-utils.printf('Advise: \n{}'.format(Y))
+X = np.loadtxt('data/crudematerials.dat')
+Y = np.loadtxt('data/manufacturedgoods.dat')
+utils.printf('Crude Materials: \n{}'.format(X))
+utils.printf('Manufactured Goods: \n{}'.format(Y))
+np.random.seed(15843)
 
 #######################################################################
 # QAP
 #######################################################################
 qap = QAP(X, Y)
 qap.init()
-qap.qap(npermutations=2000)
+qap.qap(npermutations=5000)
 qap.summary()
 qap.plot()
+

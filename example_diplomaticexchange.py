@@ -10,22 +10,30 @@ __author__ = 'lisette.espin'
 #######################################################################
 import numpy as np
 import utils
-from qap import QAP
+from mrqap import MRQAP
 
 #######################################################################
 # Data
 # Source: http://vlado.fmf.uni-lj.si/pub/networks/data/ucinet/ucidata.htm
 #######################################################################
-X =  minfo = np.loadtxt('data/friendship.dat')
-Y = np.loadtxt('data/advice.dat')
-utils.printf('Friendship: \n{}'.format(X))
-utils.printf('Advise: \n{}'.format(Y))
+X1 = np.loadtxt('data/crudematerials.dat')
+X2 = np.loadtxt('data/foods.dat')
+X3 = np.loadtxt('data/manufacturedgoods.dat')
+X4 = np.loadtxt('data/minerals.dat')
+Y = np.loadtxt('data/diplomatic.dat')
+utils.printf('Crude Materials: \n{}'.format(X1))
+utils.printf('Foods: \n{}'.format(X2))
+utils.printf('Manufactured Goods: \n{}'.format(X3))
+utils.printf('Minerals: \n{}'.format(X4))
+utils.printf('Diplomatic Exchange: \n{}'.format(Y))
+np.random.seed(473)
 
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(X, Y)
-qap.init()
-qap.qap(npermutations=2000)
-qap.summary()
-qap.plot()
+mrqap = MRQAP(Y, X1, X2, X3, X4)
+mrqap.init()
+mrqap.mrqap(npermutations=2000)
+mrqap.summary()
+mrqap.plot()
+

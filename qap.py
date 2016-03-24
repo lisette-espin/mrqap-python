@@ -14,7 +14,6 @@ from statsmodels.stats.weightstats import ztest
 import random
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
-#from decimal import Decimal
 
 #######################################################################
 # QAP
@@ -110,6 +109,8 @@ class QAP():
     #####################################################################################
 
     def summary(self):
+        utils.printf('')
+        utils.printf('# Permutations: {}'.format(len(self.permutations)))
         utils.printf('Correlation coefficients:\n{}'.format(self.betas))
         utils.printf('Percentages betas:\n{}'.format(['{}:{}'.format(k,round(v*100/float(sum(self.betas.values())),2)) for k,v in self.betas.items()]))
         utils.printf('Sum all betas: {}'.format(sum(self.betas.keys())))
@@ -119,14 +120,14 @@ class QAP():
         utils.printf('std betas: {}'.format(np.std(self.betas.keys())))
         utils.printf('prop >= {}: {}'.format(self.beta[0], sum([v for k,v in self.betas.items() if k >= self.beta[0] ])/float(sum(self.betas.values()))))
         utils.printf('prop <= {}: {} (proportion of randomly generated correlations that were as {} as the observed)'.format(self.beta[0], sum([v for k,v in self.betas.items() if k <= self.beta[0] ])/float(sum(self.betas.values())),'large' if self.beta[0] >= 0 else 'small'))
+        utils.printf('')
+        self.ols(self.Xmod, self.Y)
 
     def plot(self):
         '''
         Plots frequency of pearson's correlation values
         :return:
         '''
-        #betas = utils.sortDictByKey(self.betas, False)
-        #plt.bar([c[0] for c in betas], [c[1] for c in betas],0.2)
         plt.bar(self.betas.keys(), self.betas.values(),0.2)
         plt.xlabel('regression coefficients')
         plt.ylabel('frequency')
@@ -149,13 +150,9 @@ class QAP():
         utils.printf('T-Test:{}'.format(ttest_ind(xflatten, yflatten)))
 
     def ols(self, x, y):
-        xflatten = x.flatten()
-        yflatten = y.flatten()
+        xflatten = np.delete(x, [i*(self.n+1)for i in range(self.n)])
+        yflatten = np.delete(y, [i*(self.n+1)for i in range(self.n)])
         xflatten = sm.add_constant(xflatten)
         model = sm.OLS(yflatten,xflatten)
         results = model.fit()
-        print results.params
-        print results.tvalues
-        print results.t_test([1, 0])
-        print results.f_test(np.identity(2))
-
+        print results.summary()

@@ -26,7 +26,7 @@ utils.printf('Money Exchange: \n{}'.format(Y))
 #######################################################################
 qap = QAP(X, Y)
 qap.init()
-qap.qap(npermutations=5000)
+qap.qap(npermutations=2000)
 qap.summary()
 qap.plot()
 

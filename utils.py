@@ -20,3 +20,9 @@ def sortDictByValue(x,desc):
 def sortDictByKey(x,desc):
     sorted_x = sorted(x.items(), key=operator.itemgetter(0),reverse=desc)
     return sorted_x
+
+def _swap_cols(arr, frm, to):
+    arr[:,[frm, to]] = arr[:,[to, frm]]
+
+def _swap_rows(arr, frm, to):
+    arr[[frm, to],:] = arr[[to, frm],:]

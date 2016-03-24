@@ -40,6 +40,7 @@ class MRQAP():
         self.model = None
         self.v = None
         self.n = 0 if X is None and Y is None else Y.shape[0]
+        self.permutations = list(itertools.permutations(range(self.n),2))
 
     def init(self):
         yflatten = np.delete(self.Y.flatten(), [i*(self.n+1)for i in range(self.n)])
@@ -61,7 +62,31 @@ class MRQAP():
         :param npermutations:
         :return:
         '''
-        return
+        self._shuffle(npermutations)
+
+    def _shuffle(self, npermutations):
+        self.Ymod = self.Y.copy()
+        for t in range(npermutations if npermutations is not None else math.factorial(self.n)):
+            tuple = random.randint(0,len(self.permutations)-1)
+            i = self.permutations[tuple][0]
+            j = self.permutations[tuple][1]
+            utils._swap_cols(self.Ymod, i, j)
+            utils._swap_rows(self.Ymod, i, j)
+            model = self._newfit()
+            yflatten = np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])
+            # print np.corrcoef([x for k,x in self.v.items() if k!='y'],yflatten)
+            # print model.summary()
+            # raw_input('...')
+
+    def _newfit(self):
+        yflatten = np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])
+        v = {'ymod':yflatten}
+        for k,x in self.v.items():
+            if k != 'y':
+                v[k] = x
+        data = pandas.DataFrame(v)
+        model = ols('ymod ~ {}'.format(' + '.join([k for k in v.keys() if k != 'ymod'])), data).fit()
+        return model
 
     #####################################################################################
     # Plots & Prints

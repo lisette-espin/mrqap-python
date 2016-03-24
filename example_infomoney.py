@@ -20,13 +20,14 @@ X =  minfo = np.loadtxt('data/info.dat')
 Y = np.loadtxt('data/money.dat')
 utils.printf('Information: \n{}'.format(X))
 utils.printf('Money Exchange: \n{}'.format(Y))
+np.random.seed(761)
 
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(X, Y)
+qap = QAP(X, Y, 2000)
 qap.init()
-qap.qap(npermutations=2000)
+qap.qap()
 qap.summary()
 qap.plot()
 

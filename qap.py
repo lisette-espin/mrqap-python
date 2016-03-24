@@ -24,7 +24,7 @@ class QAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, X=None, Y=None):
+    def __init__(self, X=None, Y=None, npermutations=-1):
         '''
         Initialization of variables
         :param X: numpy array independed variable
@@ -33,10 +33,11 @@ class QAP():
         '''
         self.X = X
         self.Y = Y
+        self.npermutations = npermutations
         self.beta = None
         self.n = 0 if X is None and Y is None else Y.shape[0]
         self.permutations = list(itertools.permutations(range(self.n),2))
-        self.Xmod = None
+        self.Ymod = None
         self.betas = {}
 
     def init(self):
@@ -51,20 +52,23 @@ class QAP():
     # Core QAP methods
     #####################################################################################
 
-    def qap(self,npermutations=None):
+    def qap(self):
         '''
         Quadratic Assignment Procedure
         :param npermutations:
         :return:
         '''
-        self.Xmod = self.X.copy()
-        for t in range(npermutations if npermutations is not None else math.factorial(self.n)):
+        self._shuffle()
+
+    def _shuffle(self):
+        self.Ymod = self.Y.copy()
+        for t in range(self.npermutations if self.npermutations is not None else math.factorial(self.n)):
             tuple = random.randint(0,len(self.permutations)-1)
             i = self.permutations[tuple][0]
             j = self.permutations[tuple][1]
-            self._swap_cols(self.Xmod, i, j)
-            self._swap_rows(self.Xmod, i, j)
-            self._addBeta(self.correlation(self.Xmod, self.Y, False))
+            utils._swap_cols(self.Ymod, i, j)
+            utils._swap_rows(self.Ymod, i, j)
+            self._addBeta(self.correlation(self.X, self.Ymod, False))
 
     def correlation(self, x, y, show=True):
         '''
@@ -98,19 +102,13 @@ class QAP():
             self.betas[p] = 0
         self.betas[p] += 1
 
-    def _swap_cols(self, arr, frm, to):
-        arr[:,[frm, to]] = arr[:,[to, frm]]
-
-    def _swap_rows(self, arr, frm, to):
-        arr[[frm, to],:] = arr[[to, frm],:]
-
     #####################################################################################
     # Plots & Prints
     #####################################################################################
 
     def summary(self):
         utils.printf('')
-        utils.printf('# Permutations: {}'.format(len(self.permutations)))
+        utils.printf('# Permutations: {}'.format(self.npermutations))
         utils.printf('Correlation coefficients:\n{}'.format(self.betas))
         utils.printf('Percentages betas:\n{}'.format(['{}:{}'.format(k,round(v*100/float(sum(self.betas.values())),2)) for k,v in self.betas.items()]))
         utils.printf('Sum all betas: {}'.format(sum(self.betas.keys())))
@@ -121,14 +119,14 @@ class QAP():
         utils.printf('prop >= {}: {}'.format(self.beta[0], sum([v for k,v in self.betas.items() if k >= self.beta[0] ])/float(sum(self.betas.values()))))
         utils.printf('prop <= {}: {} (proportion of randomly generated correlations that were as {} as the observed)'.format(self.beta[0], sum([v for k,v in self.betas.items() if k <= self.beta[0] ])/float(sum(self.betas.values())),'large' if self.beta[0] >= 0 else 'small'))
         utils.printf('')
-        self.ols(self.Xmod, self.Y)
+        self.ols(self.X, self.Ymod)
 
     def plot(self):
         '''
         Plots frequency of pearson's correlation values
         :return:
         '''
-        plt.bar(self.betas.keys(), self.betas.values(),0.2)
+        plt.bar(self.betas.keys(), self.betas.values(),0.0005)
         plt.xlabel('regression coefficients')
         plt.ylabel('frequency')
         plt.title('MRQAP')

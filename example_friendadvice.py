@@ -24,8 +24,8 @@ utils.printf('Advise: \n{}'.format(Y))
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(X, Y)
+qap = QAP(X, Y, 2000)
 qap.init()
-qap.qap(npermutations=2000)
+qap.qap()
 qap.summary()
 qap.plot()

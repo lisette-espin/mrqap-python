@@ -35,7 +35,7 @@ np.random.seed(473)
 mrqap = MRQAP(Y, X)
 mrqap.init()
 mrqap.fit()
-#mrqap.mrqap(npermutations=2000)
+mrqap.mrqap(npermutations=2000)
 mrqap.summary()
 #mrqap.plot()
 

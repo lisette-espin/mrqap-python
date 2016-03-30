@@ -32,10 +32,10 @@ np.random.seed(473)
 #######################################################################
 # QAP
 #######################################################################
-mrqap = MRQAP(Y, X)
+mrqap = MRQAP(X, Y)
 mrqap.init()
 mrqap.fit()
-mrqap.mrqap(npermutations=2000)
-mrqap.summary()
+mrqap.mrqap(maxpermutations=2000)
+#mrqap.summary()
 #mrqap.plot()
 

@@ -1,4 +1,4 @@
-__author__ = 'lisette.espin'
+__author__ = 'espin'
 
 #######################################################################
 # Dependencies
@@ -17,6 +17,7 @@ from scipy.stats import ttest_ind
 import pandas
 from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm
+import sys
 
 #######################################################################
 # MRQAP
@@ -27,26 +28,29 @@ class MRQAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, Y=None, X=None):
+    def __init__(self, X=None, Y=None):
         '''
         Initialization of variables
-        :param Y: numpy array depended variable
         :param X: dictionary of numpy array independed variables
+        :param Y: numpy array depended variable
         :return:
         '''
-        self.Y = Y
-        self.X = X
-        self.data = None
-        self.model = None
-        self.v = None
-        self.n = 0 if X is None and Y is None else Y.shape[0]
-        self.permutations = list(itertools.permutations(range(self.n),2))
+        self.X = X          # independent variables: dictionary of numpy.array
+        self.Y = Y          # dependent variable: numpy.array
+        self.data = None    # Pandas DataFrame
+        self.model = None   # OLS Model y ~ x1 + x2 + x3
+        self.v = None       # vectorized matrices, flatten variables with no diagonal
+        self.betas = {}     # betas distribution
+        self.n = 0 if X is None and Y is None else Y.shape[0]               # number of nodes (rows/columns)
+        self.permutations = list(itertools.permutations(range(self.n),2))   # all possible shuffleings
 
     def init(self):
-        yflatten = np.delete(self.Y.flatten(), [i*(self.n+1)for i in range(self.n)])
-        self.v = {'y':yflatten}
+        self.v = {'y':np.delete(self.Y.flatten(), [i*(self.n+1)for i in range(self.n)])} # vectorizing Y and removing diagonal
         for k,x in self.X.items():
-            self.v[k] = np.delete(x.flatten(), [i*(self.n+1)for i in range(self.n)])
+            if k == 'y':
+                utils.printf('ERROR: Idependent variable cannot be named \'y\'')
+                sys.exit(0)
+            self.v[k] = np.delete(x.flatten(), [i*(self.n+1)for i in range(self.n)])    # vectorizing X's and removing diagonal
         self.data = pandas.DataFrame(self.v)
 
     def fit(self):
@@ -56,36 +60,39 @@ class MRQAP():
     # Core QAP methods
     #####################################################################################
 
-    def mrqap(self,npermutations=None):
+    def mrqap(self,maxpermutations=None):
         '''
         MultipleRegression Quadratic Assignment Procedure
-        :param npermutations:
+        :param maxpermutations: maximun number of shuffleings
         :return:
         '''
+        npermutations = min(maxpermutations, math.factorial(self.n))
         self._shuffle(npermutations)
 
     def _shuffle(self, npermutations):
         self.Ymod = self.Y.copy()
-        for t in range(npermutations if npermutations is not None else math.factorial(self.n)):
+        for t in range(npermutations):
             tuple = random.randint(0,len(self.permutations)-1)
             i = self.permutations[tuple][0]
             j = self.permutations[tuple][1]
             utils._swap_cols(self.Ymod, i, j)
             utils._swap_rows(self.Ymod, i, j)
             model = self._newfit()
+
             yflatten = np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])
-            # print np.corrcoef([x for k,x in self.v.items() if k!='y'],yflatten)
-            # print model.summary()
-            # raw_input('...')
+            print np.corrcoef([x for k,x in self.v.items() if k!='y'],yflatten)
+            raw_input('...')
+
+            print model.summary()
+            raw_input('...')
 
     def _newfit(self):
-        yflatten = np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])
-        v = {'ymod':yflatten}
+        newv = {'ymod':np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])}
         for k,x in self.v.items():
             if k != 'y':
-                v[k] = x
-        data = pandas.DataFrame(v)
-        model = ols('ymod ~ {}'.format(' + '.join([k for k in v.keys() if k != 'ymod'])), data).fit()
+                newv[k] = x
+        newdata = pandas.DataFrame(newv)
+        model = ols('ymod ~ {}'.format(' + '.join([k for k in newv.keys() if k != 'ymod'])), newdata).fit()
         return model
 
     #####################################################################################

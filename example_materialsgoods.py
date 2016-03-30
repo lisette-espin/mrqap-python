@@ -11,6 +11,7 @@ __author__ = 'lisette.espin'
 import numpy as np
 import utils
 from qap import QAP
+from mrqap import MRQAP
 
 #######################################################################
 # Data
@@ -30,4 +31,3 @@ qap.init()
 qap.qap()
 qap.summary()
 qap.plot()
-

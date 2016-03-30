@@ -10,7 +10,7 @@ from scipy.stats import linregress
 import math
 import itertools
 import statsmodels.api as sm
-from statsmodels.stats.weightstats import ztest
+#from statsmodels.stats.weightstats import ztest
 import random
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
@@ -51,6 +51,7 @@ class MRQAP():
                 utils.printf('ERROR: Idependent variable cannot be named \'y\'')
                 sys.exit(0)
             self.v[k] = np.delete(x.flatten(), [i*(self.n+1)for i in range(self.n)])    # vectorizing X's and removing diagonal
+            self.betas[k] = []
         self.data = pandas.DataFrame(self.v)
 
     def fit(self):
@@ -60,13 +61,13 @@ class MRQAP():
     # Core QAP methods
     #####################################################################################
 
-    def mrqap(self,maxpermutations=None):
+    def mrqap(self,npermutations=None):
         '''
         MultipleRegression Quadratic Assignment Procedure
         :param maxpermutations: maximun number of shuffleings
         :return:
         '''
-        npermutations = min(maxpermutations, math.factorial(self.n))
+        #npermutations = min(npermutations, math.factorial(self.n))
         self._shuffle(npermutations)
 
     def _shuffle(self, npermutations):
@@ -78,13 +79,7 @@ class MRQAP():
             utils._swap_cols(self.Ymod, i, j)
             utils._swap_rows(self.Ymod, i, j)
             model = self._newfit()
-
-            yflatten = np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])
-            print np.corrcoef([x for k,x in self.v.items() if k!='y'],yflatten)
-            raw_input('...')
-
-            print model.summary()
-            raw_input('...')
+            self._update_betas(model._results.params)
 
     def _newfit(self):
         newv = {'ymod':np.delete(self.Ymod.flatten(), [i*(self.n+1)for i in range(self.n)])}
@@ -95,19 +90,39 @@ class MRQAP():
         model = ols('ymod ~ {}'.format(' + '.join([k for k in newv.keys() if k != 'ymod'])), newdata).fit()
         return model
 
+    def _update_betas(self, betas):
+        for idx,k in enumerate(self.betas.keys()):
+                self.betas[k].append(round(betas[idx+1],6))
+
     #####################################################################################
     # Plots & Prints
     #####################################################################################
 
     def summary(self):
         # Print the summary
-        utils.printf('Summary:\n{}'.format(self.model.summary()))
-
-        utils.printf("\nRetrieving manually the parameter estimates:\n{}".format(self.model._results.params))
+        utils.printf('Summary (Original):\n{}'.format(self.model.summary()))
+        tmp = [' - {}: {}'.format(k,self.model._results.params[idx+1]) for idx,k in enumerate(self.betas.keys())]
+        tmp.append(' - Intercept: {}'.format(self.model._results.params[0]))
+        utils.printf("Retrieving manually the parameter estimates (betas):\n{}".format('\n'.join(tmp)))
 
         # Peform analysis of variance on fitted linear model
         anova_results = anova_lm(self.model)
-        utils.printf('\nANOVA results:\n{}'.format(anova_results))
+        utils.printf('ANOVA results:\n{}'.format(anova_results))
 
     def plot(self):
-        return
+        '''
+        Plots frequency of pearson's correlation values
+        :return:
+        '''
+        plt.figure(1)
+        ncols = round(len(self.betas.keys())/2.0)
+        for idx,k in enumerate(self.betas.keys()):
+            plt.subplot(2,ncols,idx+1)
+            plt.hist(self.betas[k])
+            plt.xlabel('regression coefficients')
+            plt.ylabel('frequency')
+            plt.title(k)
+            plt.grid(True)
+        plt.show()
+        plt.close()
+

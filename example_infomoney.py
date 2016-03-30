@@ -16,18 +16,14 @@ from qap import QAP
 # Data
 # Source: http://vlado.fmf.uni-lj.si/pub/networks/data/ucinet/ucidata.htm
 #######################################################################
-X =  minfo = np.loadtxt('data/info.dat')
-Y = np.loadtxt('data/money.dat')
-utils.printf('Information: \n{}'.format(X))
-utils.printf('Money Exchange: \n{}'.format(Y))
-np.random.seed(761)
+minfo =  minfo = np.loadtxt('data/info.dat')
+mmoney = np.loadtxt('data/money.dat')
+utils.printf('Information: \n{}'.format(minfo))
+utils.printf('Money Exchange: \n{}'.format(mmoney))
 
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(X, Y, 2000)
+qap = QAP(mmoney, minfo)
 qap.init()
 qap.qap()
-qap.summary()
-qap.plot()
-

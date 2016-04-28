@@ -9,8 +9,10 @@ __author__ = 'lisette.espin'
 # Dependencies
 #######################################################################
 import numpy as np
-import utils
-from qap import QAP
+
+from libs import utils
+from libs.qap import QAP
+
 
 #######################################################################
 # Data

@@ -3,17 +3,15 @@ __author__ = 'espin'
 #######################################################################
 # Dependencies
 #######################################################################
-import numpy as np
-import utils
-from scipy.stats.stats import pearsonr
-from scipy.stats import linregress
-import math
 import itertools
-import statsmodels.api as sm
+
+import numpy as np
+
+from libs import utils
+
 #from statsmodels.stats.weightstats import ztest
 import random
 import matplotlib.pyplot as plt
-from scipy.stats import ttest_ind
 import pandas
 from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm

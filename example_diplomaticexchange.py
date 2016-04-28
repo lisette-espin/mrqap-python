@@ -9,8 +9,9 @@ __author__ = 'lisette.espin'
 # Dependencies
 #######################################################################
 import numpy as np
-import utils
-from mrqap import MRQAP
+
+from libs.mrqap import MRQAP
+
 
 #######################################################################
 # Data

@@ -3,17 +3,19 @@ __author__ = 'lisette.espin'
 #######################################################################
 # Dependencies
 #######################################################################
-import numpy as np
-import utils
-from scipy.stats.stats import pearsonr
-from scipy.stats import linregress
 import math
 import itertools
+import random
+
+import numpy as np
+from scipy.stats.stats import pearsonr
 import statsmodels.api as sm
 from statsmodels.stats.weightstats import ztest
-import random
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
+
+from libs import utils
+
 
 #######################################################################
 # QAP

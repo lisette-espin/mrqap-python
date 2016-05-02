@@ -37,10 +37,8 @@ X = {'TRADE':X1, 'DISTANCE':X2, 'COLONIAL':X3}
 #######################################################################
 # QAP
 #######################################################################
-mrqap = MRQAP(X, Y)
-mrqap.init()
-mrqap.fit()
-mrqap.mrqap(npermutations=1000)
+mrqap = MRQAP(Y, X)
+mrqap.mrqap(npermutations=2000, diagonal=False)
 mrqap.summary()
 print("--- %s seconds ---" % (time.time() - start_time))
-mrqap.plot()
+#mrqap.plot()

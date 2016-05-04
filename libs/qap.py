@@ -3,17 +3,12 @@ __author__ = 'lisette.espin'
 #######################################################################
 # Dependencies
 #######################################################################
-import math
-import itertools
-import random
-
 import numpy as np
 from scipy.stats.stats import pearsonr
 import statsmodels.api as sm
 from statsmodels.stats.weightstats import ztest
 import matplotlib.pyplot as plt
 from scipy.stats import ttest_ind
-
 from libs import utils
 
 
@@ -26,21 +21,19 @@ class QAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, X=None, Y=None, npermutations=-1):
+    def __init__(self, Y=None, X=None, npermutations=-1):
         '''
         Initialization of variables
-        :param X: numpy array independed variable
         :param Y: numpy array depended variable
+        :param X: numpy array independed variable
         :return:
         '''
-        self.X = X
         self.Y = Y
+        self.X = X
         self.npermutations = npermutations
         self.beta = None
-        self.n = 0 if X is None and Y is None else Y.shape[0]
-        self.permutations = list(itertools.permutations(range(self.n),2))
         self.Ymod = None
-        self.betas = {}
+        self.betas = []
 
     def init(self):
         '''
@@ -60,16 +53,13 @@ class QAP():
         :param npermutations:
         :return:
         '''
+        self.init()
         self._shuffle()
 
     def _shuffle(self):
         self.Ymod = self.Y.copy()
-        for t in range(self.npermutations if self.npermutations is not None else math.factorial(self.n)):
-            tuple = random.randint(0,len(self.permutations)-1)
-            i = self.permutations[tuple][0]
-            j = self.permutations[tuple][1]
-            utils._swap_cols(self.Ymod, i, j)
-            utils._swap_rows(self.Ymod, i, j)
+        for t in range(self.npermutations):
+            self._rmperm()
             self._addBeta(self.correlation(self.X, self.Ymod, False))
 
     def correlation(self, x, y, show=True):
@@ -81,8 +71,8 @@ class QAP():
         :param show: if True then shows pearson's correlation and p-value.
         :return:
         '''
-        xflatten = np.delete(x, [i*(self.n+1)for i in range(self.n)])
-        yflatten = np.delete(y, [i*(self.n+1)for i in range(self.n)])
+        xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
+        yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
         pc = pearsonr(xflatten, yflatten)
         if show:
             utils.printf('Pearson Correlation: {}'.format(pc[0]))
@@ -100,9 +90,13 @@ class QAP():
         :return:
         '''
         p = round(p[0],6)
-        if p not in self.betas:
-            self.betas[p] = 0
-        self.betas[p] += 1
+        self.betas.append(p)
+
+    def _rmperm(self):
+        shuffle = np.random.permutation(self.Ymod.shape[0])
+        np.take(self.Ymod,shuffle,axis=0,out=self.Ymod)
+        np.take(self.Ymod,shuffle,axis=1,out=self.Ymod)
+
 
     #####################################################################################
     # Plots & Prints
@@ -111,29 +105,28 @@ class QAP():
     def summary(self):
         utils.printf('')
         utils.printf('# Permutations: {}'.format(self.npermutations))
-        utils.printf('Correlation coefficients:\n{}'.format(self.betas))
-        utils.printf('Percentages betas:\n{}'.format(['{}:{}'.format(k,round(v*100/float(sum(self.betas.values())),2)) for k,v in self.betas.items()]))
-        utils.printf('Sum all betas: {}'.format(sum(self.betas.keys())))
-        utils.printf('min betas: {}'.format(min(self.betas.keys())))
-        utils.printf('max betas: {}'.format(max(self.betas.keys())))
-        utils.printf('average betas: {}'.format(np.average(self.betas.keys())))
-        utils.printf('std betas: {}'.format(np.std(self.betas.keys())))
-        utils.printf('prop >= {}: {}'.format(self.beta[0], sum([v for k,v in self.betas.items() if k >= self.beta[0] ])/float(sum(self.betas.values()))))
-        utils.printf('prop <= {}: {} (proportion of randomly generated correlations that were as {} as the observed)'.format(self.beta[0], sum([v for k,v in self.betas.items() if k <= self.beta[0] ])/float(sum(self.betas.values())),'large' if self.beta[0] >= 0 else 'small'))
+        utils.printf('Correlation coefficients: Obs. Value({}), Significance({})'.format(self.beta[0], self.beta[1]))
         utils.printf('')
-        self.ols(self.X, self.Ymod)
+        utils.printf('- Sum all betas: {}'.format(sum(self.betas)))
+        utils.printf('- Min betas: {}'.format(min(self.betas)))
+        utils.printf('- Max betas: {}'.format(max(self.betas)))
+        utils.printf('- Average betas: {}'.format(np.average(self.betas)))
+        utils.printf('- Std. Dev. betas: {}'.format(np.std(self.betas)))
+        utils.printf('')
+        utils.printf('prop >= {}: {}'.format(self.beta[0], sum([1 for b in self.betas if b >= self.beta[0] ])/float(len(self.betas))))
+        utils.printf('prop <= {}: {} (proportion of randomly generated correlations that were as {} as the observed)'.format(self.beta[0], sum([1 for b in self.betas if b <= self.beta[0] ])/float(len(self.betas)), 'large' if self.beta[0] >= 0 else 'small'))
+        utils.printf('')
 
     def plot(self):
         '''
         Plots frequency of pearson's correlation values
         :return:
         '''
-        plt.bar(self.betas.keys(), self.betas.values(),0.0005)
+        plt.hist(self.betas)
         plt.xlabel('regression coefficients')
         plt.ylabel('frequency')
-        plt.title('MRQAP')
+        plt.title('QAP')
         plt.grid(True)
-        #plt.savefig("test.png")
         plt.show()
         plt.close()
 
@@ -142,16 +135,16 @@ class QAP():
     #####################################################################################
 
     def stats(self, x, y):
-        xflatten = np.delete(x, [i*(self.n+1)for i in range(self.n)])
-        yflatten = np.delete(y, [i*(self.n+1)for i in range(self.n)])
+        xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
+        yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
         p = np.corrcoef(xflatten,yflatten)
         utils.printf('Pearson\'s correlation:\n{}'.format(p))
         utils.printf('Z-Test:{}'.format(ztest(xflatten, yflatten)))
         utils.printf('T-Test:{}'.format(ttest_ind(xflatten, yflatten)))
 
     def ols(self, x, y):
-        xflatten = np.delete(x, [i*(self.n+1)for i in range(self.n)])
-        yflatten = np.delete(y, [i*(self.n+1)for i in range(self.n)])
+        xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
+        yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
         xflatten = sm.add_constant(xflatten)
         model = sm.OLS(yflatten,xflatten)
         results = model.fit()

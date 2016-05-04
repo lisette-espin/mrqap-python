@@ -22,12 +22,12 @@ X =  minfo = np.loadtxt('data/friendship.dat')
 Y = np.loadtxt('data/advice.dat')
 utils.printf('Friendship: \n{}'.format(X))
 utils.printf('Advise: \n{}'.format(Y))
+np.random.seed(831)
 
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(X, Y, 2000)
-qap.init()
+qap = QAP(Y, X, 2000)
 qap.qap()
 qap.summary()
 qap.plot()

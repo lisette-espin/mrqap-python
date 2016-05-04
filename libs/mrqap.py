@@ -4,151 +4,217 @@ __author__ = 'espin'
 # Dependencies
 #######################################################################
 import sys
-import itertools
 import collections
 import numpy as np
 import pandas
 import matplotlib.pyplot as plt
 from statsmodels.formula.api import ols
-from scipy import stats
-from random import shuffle
 from libs import utils
-# from statsmodels.stats.anova import anova_lm
-# import random
-# from statsmodels.stats.weightstats import ztest
+
 
 #######################################################################
 # MRQAP
 #######################################################################
+INTERCEPT = 'Intercept'
+
 class MRQAP():
 
     #####################################################################################
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, Y=None, X=None):
+    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False):
         '''
         Initialization of variables
         :param Y: numpy array depended variable
         :param X: dictionary of numpy array independed variables
+        :param npermutations: int number of permutations
+        :param diagonal: boolean, False to delete diagonal from the OLS model
         :return:
         '''
-        self.X = X                              # independent variables: dictionary of numpy.array
-        self.Y = Y                              # dependent variable: numpy.array
-        self.data = None                        # Pandas DataFrame
-        self.model = None                       # OLS Model y ~ x1 + x2 + x3
-        self.v = None                           # vectorized matrices, flatten variables with no diagonal
-        self.betas = collections.OrderedDict()  # betas distribution
-        self.E = {}                             # betas (expected values)
-        self.n = 0 if X is None and Y is None else Y.shape[0]               # number of nodes (rows/columns)
-        self.permutations = list(itertools.permutations(range(self.n),2))   # all possible shuffleings
+        self.X = X                                  # independent variables: dictionary of numpy.array
+        self.Y = Y                                  # dependent variable: dictionary numpy.array
+        self.npermutations = npermutations          # number of permutations
+        self.diagonal = diagonal                    # False then diagonal is removed
+        self.data = None                            # Pandas DataFrame
+        self.model = None                           # OLS Model y ~ x1 + x2 + x3 (original)
+        self.v = None                               # vectorized matrices, flatten variables with no diagonal
+        self.betas = collections.OrderedDict()      # betas distribution
+        self.tvalues = collections.OrderedDict()    # t-test values
+        self._perms = []                            # list to keep track of already executed permutations
 
-    def init(self, diagonal):
-        self.v = {'y':self._getFlatten(self.Y, diagonal)}
-        self.betas['INTERCEPT'] = []
+    def init(self):
+        '''
+        Generating the original OLS model. Y and Xs are flattened.
+        Also, the betas and tvalues dictionaries are initialized (key:independent variables, value:[])
+        :return:
+        '''
+        self.v = {self.Y.keys()[0]:self._getFlatten(self.Y.values()[0])}
+        self._initCoefficients(INTERCEPT)
         for k,x in self.X.items():
-            if k == 'y':
-                utils.printf('ERROR: Idependent variable cannot be named \'y\'')
+            if k == self.Y.keys()[0]:
+                utils.printf('ERROR: Idependent variable cannot be named \'[}\''.format(self.Y.keys()[0]))
                 sys.exit(0)
-            self.v[k] = self._getFlatten(x,diagonal)
-            self.betas[k] = []
+            self.v[k] = self._getFlatten(x)
+            self._initCoefficients(k)
         self.data = pandas.DataFrame(self.v)
 
     def fit(self):
-        self.model = ols('y ~ {}'.format(' + '.join([k for k in self.v.keys() if k != 'y'])), self.data).fit()
-        # Storing beta coeficcients
-        betas = self.model._results.params
-        for idx,k in enumerate(self.betas.keys()):
-            self.E[k] = round(betas[idx],6)
+        '''
+        Fitting OLS model (original)
+        :return:
+        '''
+        self.model = ols('{} ~ {}'.format(self.Y.keys()[0], ' + '.join([k for k in self.v.keys() if k != self.Y.keys()[0]])), self.data).fit()
 
     #####################################################################################
     # Core QAP methods
     #####################################################################################
 
-    def mrqap(self,npermutations=None, diagonal=False):
+    def mrqap(self):
         '''
         MultipleRegression Quadratic Assignment Procedure
-        :param maxpermutations: maximun number of shuffleings
         :return:
         '''
-        self.init(diagonal)
+        self.init()
         self.fit()
-        self._shuffle(npermutations, diagonal)
+        self._shuffle()
 
-    def _shuffle(self, npermutations, diagonal):
-        self.Ymod = self.Y.copy()
-        shuffle(self.permutations)
-        for tuple in range(npermutations if npermutations < len(self.permutations) else len(self.permutations)):
-            # tuple = random.randint(0,len(self.permutations)-1)
-            i = self.permutations[tuple][0]
-            j = self.permutations[tuple][1]
-            utils._swap_cols(self.Ymod, i, j)
-            utils._swap_rows(self.Ymod, i, j)
-            model = self._newfit(diagonal)
+    def _shuffle(self):
+        '''
+        Shuffling rows and columns npermutations times.
+        beta coefficients and tvalues are stored.
+        :return:
+        '''
+        self.Ymod = self.Y.values()[0].copy()
+        for p in range(self.npermutations):
+            self._rmperm()
+            model = self._newfit()
             self._update_betas(model._results.params)
+            self._update_tvalues(model.tvalues)
 
-    def _newfit(self, diagonal):
-        newv = {'ymod':self._getFlatten(self.Ymod, diagonal)}
+    def _newfit(self):
+        '''
+        Generates a new OLS fit model
+        :return:
+        '''
+        newv = {'ymod':self._getFlatten(self.Ymod)}
         for k,x in self.v.items():
-            if k != 'y':
+            if k != self.Y.keys()[0]:
                 newv[k] = x
         newdata = pandas.DataFrame(newv)
-        model = ols('ymod ~ {}'.format(' + '.join([k for k in newv.keys() if k != 'ymod'])), newdata).fit()
-        return model
+        return ols('ymod ~ {}'.format(' + '.join([k for k in newv.keys() if k != 'ymod'])), newdata).fit()
+
+
+    #####################################################################################
+    # Handlers
+    #####################################################################################
+
+    def _initCoefficients(self, key):
+        self.betas[key] = []
+        self.tvalues[key] = []
+
+    def _rmperm(self):
+        shuffle = np.random.permutation(self.Ymod.shape[0])
+        while list(shuffle) in self._perms:
+            shuffle = np.random.permutation(self.Ymod.shape[0])
+        self._perms.append(list(shuffle))
+        np.take(self.Ymod,shuffle,axis=0,out=self.Ymod)
+        np.take(self.Ymod,shuffle,axis=1,out=self.Ymod)
 
     def _update_betas(self, betas):
         for idx,k in enumerate(self.betas.keys()):
                 self.betas[k].append(round(betas[idx],6))
 
-    def _getFlatten(self, original, diagonal):
+    def _update_tvalues(self, tvalues):
+        for k in self.tvalues.keys():
+            self.tvalues[k].append(round(tvalues[k],6))
+
+    def _getFlatten(self, original):
+        return self._deleteDiagonalFlatten(original)
+
+    def _deleteDiagonalFlatten(self, original):
         tmp = original.flatten()
-        if not diagonal:
-            tmp = np.delete(tmp, [i*(self.n+1)for i in range(self.n)])
+        if not self.diagonal:
+            tmp = np.delete(tmp, [i*(original.shape[0]+1)for i in range(original.shape[0])])
         return tmp
 
-        # tmp = original.copy()
-        # if not diagonal:
-        #     np.fill_diagonal(tmp,0)
-        # f = tmp.flatten()
-        # del(tmp)
-        # return f
+    def _zeroDiagonalFlatten(self, original):
+        tmp = original.copy()
+        if not self.diagonal:
+            np.fill_diagonal(tmp,0)
+        f = tmp.flatten()
+        del(tmp)
+        return f
 
     #####################################################################################
-    # Plots & Prints
+    # Prints
     #####################################################################################
 
     def summary(self):
+        '''
+        Prints the OLS original summary and beta and tvalue summary.
+        :return:
+        '''
+        self._summary_ols()
+        self._summary_betas()
+        self._summary_tvalues()
 
-        # Print the summary
+    def _summary_ols(self):
+        '''
+        Print the OLS summary
+        :return:
+        '''
         utils.printf('')
         utils.printf('=== Summary OLS (original) ===\n{}'.format(self.model.summary()))
 
-        # Summary of beta coefficients
+    def _summary_betas(self):
+        '''
+        Summary of beta coefficients
+        :return:
+        '''
         utils.printf('')
         utils.printf('=== Summary beta coefficients ===')
-        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>15s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','COEF.','T-TEST','P-VALUE'))
+        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','B.COEFF.','As Large', 'As Small', 'P-VALUE'))
         for k,v in self.betas.items():
-            tstats = stats.ttest_1samp(v,self.E[k])
-            utils.printf('{:20s}{:10f}{:10f}{:10f}{:12f}{:>12f}{:15f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),self.E[k],round(float(tstats[0]),2),round(float(tstats[1]),2)))
+            beta = self.model.params[k]
+            pstats = self.model.pvalues[k]
+            aslarge = sum([1 for c in v if c >= beta]) / float(len(v))
+            assmall = sum([1 for c in v if c <= beta]) / float(len(v))
+            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),beta,aslarge,assmall,round(float(pstats),2)))
 
-        #tmp = [' - {}: {}'.format(k,self.model._results.params[idx]) for idx,k in enumerate(self.betas.keys())]
-        #tmp.append(' - Intercept: {}'.format(self.model._results.params[0]))
-        #utils.printf("Retrieving manually the parameter estimates (betas):\n{}".format('\n'.join(tmp)))
-        # Peform analysis of variance on fitted linear model
-        #anova_results = anova_lm(self.model)
-        #utils.printf('ANOVA results:\n{}'.format(anova_results))
-        #print '{}:({},{}) ttest:{} pvalue:{} rsquared:{}'.format(t,i,j,model._results.tvalues, model._results.pvalues, model._results.rsquared)
+    def _summary_tvalues(self):
+        '''
+        Summary t-values
+        :return:
+        '''
+        utils.printf('')
+        utils.printf('=== Summary T-Values ===')
+        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','T-TEST','As Large', 'As Small'))
+        for k,v in self.tvalues.items():
+            tstats = self.model.tvalues[k]
+            aslarge = sum([1 for c in v if c >= tstats]) / float(len(v))
+            assmall = sum([1 for c in v if c <= tstats]) / float(len(v))
+            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),round(float(tstats),2),aslarge,assmall))
 
-    def plot(self):
+
+    #####################################################################################
+    # Plots
+    #####################################################################################
+
+    def plot(self,coef='betas'):
         '''
         Plots frequency of pearson's correlation values
+        :param coef: string \in {betas, tvalues}
         :return:
         '''
         plt.figure(1)
         ncols = round(len(self.betas.keys())/2.0)
         for idx,k in enumerate(self.betas.keys()):
             plt.subplot(2,ncols,idx+1)
-            plt.hist(self.betas[k])
+            if coef == 'betas':
+                plt.hist(self.betas[k])
+            elif coef == 'tvalues':
+                plt.hist(self.tvalues[k])
             plt.xlabel('regression coefficients')
             plt.ylabel('frequency')
             plt.title(k)

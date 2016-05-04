@@ -9,9 +9,7 @@ __author__ = 'lisette.espin'
 # Dependencies
 #######################################################################
 import numpy as np
-
 from libs.mrqap import MRQAP
-
 
 #######################################################################
 # Data
@@ -23,15 +21,15 @@ X3 = np.loadtxt('data/manufacturedgoods.dat')
 X4 = np.loadtxt('data/minerals.dat')
 Y = np.loadtxt('data/diplomatic.dat')
 X = {'CRUDEMATERIALS':X1, 'FOODS':X2, 'MANUFACTUREDGOODS':X3, 'MINERALS':X4}
+Y = {'DIPLOMATIC':Y}
 np.random.seed(473)
 
 #######################################################################
 # QAP
 #######################################################################
-mrqap = MRQAP(X, Y)
-mrqap.init()
-mrqap.fit()
-mrqap.mrqap(npermutations=2000)
+mrqap = MRQAP(Y=Y, X=X, npermutations=2000, diagonal=False)
+mrqap.mrqap()
 mrqap.summary()
-mrqap.plot()
+mrqap.plot('betas')
+mrqap.plot('tvalues')
 

@@ -9,10 +9,8 @@ __author__ = 'lisette.espin'
 # Dependencies
 #######################################################################
 import numpy as np
-
 from libs import utils
 from libs.qap import QAP
-
 
 #######################################################################
 # Data
@@ -26,6 +24,6 @@ utils.printf('Money Exchange: \n{}'.format(mmoney))
 #######################################################################
 # QAP
 #######################################################################
-qap = QAP(mmoney, minfo)
-qap.init()
+qap = QAP(minfo, mmoney, 5000)
 qap.qap()
+qap.summary()

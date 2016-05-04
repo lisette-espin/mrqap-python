@@ -11,5 +11,5 @@ Multiple Regression Quadratic Assignment Procedure
     - example_materialsgoods.py
 - All 14 different datasets are in folder "data".
   - 9 of them (.dat) are already in a matrix text format 
-  - 5 of them (.txt) constain relationship values (e.g., nodeA nodeB valueAB)
+  - 5 of them (.txt) contain relationship values (e.g., nodeA nodeB valueAB)
 

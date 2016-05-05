@@ -58,13 +58,7 @@ class MRQAP():
             self.v[k] = self._getFlatten(x)
             self._initCoefficients(k)
         self.data = pandas.DataFrame(self.v)
-
-    def fit(self):
-        '''
-        Fitting OLS model (original)
-        :return:
-        '''
-        self.model = ols('{} ~ {}'.format(self.Y.keys()[0], ' + '.join([k for k in self.v.keys() if k != self.Y.keys()[0]])), self.data).fit()
+        self.model = self._fit(self.v, self.data)
 
     #####################################################################################
     # Core QAP methods
@@ -76,7 +70,6 @@ class MRQAP():
         :return:
         '''
         self.init()
-        self.fit()
         self._shuffle()
 
     def _shuffle(self):
@@ -85,8 +78,8 @@ class MRQAP():
         beta coefficients and tvalues are stored.
         :return:
         '''
-        self.Ymod = self.Y.values()[0].copy()
         for p in range(self.npermutations):
+            self.Ymod = self.Y.values()[0].copy()
             self._rmperm()
             model = self._newfit()
             self._update_betas(model._results.params)
@@ -97,27 +90,36 @@ class MRQAP():
         Generates a new OLS fit model
         :return:
         '''
-        newv = {'ymod':self._getFlatten(self.Ymod)}
+        newv = {self.Y.keys()[0]:self._getFlatten(self.Ymod)}
         for k,x in self.v.items():
             if k != self.Y.keys()[0]:
                 newv[k] = x
         newdata = pandas.DataFrame(newv)
-        return ols('ymod ~ {}'.format(' + '.join([k for k in newv.keys() if k != 'ymod'])), newdata).fit()
+        return self._fit(newv, newdata)
 
 
     #####################################################################################
     # Handlers
     #####################################################################################
 
+    def _fit(self, v, data):
+        '''
+        Fitting OLS model
+        v a dictionary with all variables.
+        :return:
+        '''
+        return ols('{} ~ {}'.format(self.Y.keys()[0], ' + '.join([k for k in v.keys() if k != self.Y.keys()[0]])), data).fit()
+
     def _initCoefficients(self, key):
         self.betas[key] = []
         self.tvalues[key] = []
 
-    def _rmperm(self):
+    def _rmperm(self, duplicates=False):
         shuffle = np.random.permutation(self.Ymod.shape[0])
-        while list(shuffle) in self._perms:
-            shuffle = np.random.permutation(self.Ymod.shape[0])
-        self._perms.append(list(shuffle))
+        if not duplicates:
+            while list(shuffle) in self._perms:
+                shuffle = np.random.permutation(self.Ymod.shape[0])
+            self._perms.append(list(shuffle))
         np.take(self.Ymod,shuffle,axis=0,out=self.Ymod)
         np.take(self.Ymod,shuffle,axis=1,out=self.Ymod)
 
@@ -146,6 +148,7 @@ class MRQAP():
         del(tmp)
         return f
 
+
     #####################################################################################
     # Prints
     #####################################################################################
@@ -166,6 +169,8 @@ class MRQAP():
         '''
         utils.printf('')
         utils.printf('=== Summary OLS (original) ===\n{}'.format(self.model.summary()))
+        utils.printf('')
+        utils.printf('# of Permutations: {}'.format(self.npermutations))
 
     def _summary_betas(self):
         '''
@@ -219,5 +224,6 @@ class MRQAP():
             plt.ylabel('frequency')
             plt.title(k)
             plt.grid(True)
+        plt.suptitle('{} Distribution'.format(coef.upper()))
         plt.show()
         plt.close()

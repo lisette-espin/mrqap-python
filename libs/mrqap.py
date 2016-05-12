@@ -114,7 +114,7 @@ class MRQAP():
         self.betas[key] = []
         self.tvalues[key] = []
 
-    def _rmperm(self, duplicates=False):
+    def _rmperm(self, duplicates=True):
         shuffle = np.random.permutation(self.Ymod.shape[0])
         if not duplicates:
             while list(shuffle) in self._perms:

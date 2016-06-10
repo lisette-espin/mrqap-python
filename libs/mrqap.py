@@ -7,10 +7,14 @@ import sys
 import collections
 import numpy as np
 import pandas
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from statsmodels.formula.api import ols
 from libs import utils
-
+from libs.profiling import Profiling
+import time
+import gc
 
 #######################################################################
 # MRQAP
@@ -23,7 +27,7 @@ class MRQAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False):
+    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False, directed=False, logfile=None, memory=None):
         '''
         Initialization of variables
         :param Y: numpy array depended variable
@@ -34,14 +38,17 @@ class MRQAP():
         '''
         self.X = X                                  # independent variables: dictionary of numpy.array
         self.Y = Y                                  # dependent variable: dictionary numpy.array
+        self.n = Y.values()[0].shape[0]           # number of nodes
         self.npermutations = npermutations          # number of permutations
         self.diagonal = diagonal                    # False then diagonal is removed
+        self.directed = directed                    # directed True, undirected False
         self.data = None                            # Pandas DataFrame
         self.model = None                           # OLS Model y ~ x1 + x2 + x3 (original)
         self.v = None                               # vectorized matrices, flatten variables with no diagonal
         self.betas = collections.OrderedDict()      # betas distribution
         self.tvalues = collections.OrderedDict()    # t-test values
-        self._perms = []                            # list to keep track of already executed permutations
+        self.logfile = logfile                      # logfile path name
+        self.memory = memory if memory is not None else Profiling()  # to track memory usage
 
     def init(self):
         '''
@@ -53,12 +60,16 @@ class MRQAP():
         self._initCoefficients(INTERCEPT)
         for k,x in self.X.items():
             if k == self.Y.keys()[0]:
-                utils.printf('ERROR: Idependent variable cannot be named \'[}\''.format(self.Y.keys()[0]))
+                utils.printf('ERROR: Idependent variable cannot be named \'[}\''.format(self.Y.keys()[0]), self.logfile)
                 sys.exit(0)
             self.v[k] = self._getFlatten(x)
             self._initCoefficients(k)
         self.data = pandas.DataFrame(self.v)
         self.model = self._fit(self.v, self.data)
+        del(self.X)
+
+    def profiling(self, key):
+        self.memory.check_memory(key)
 
     #####################################################################################
     # Core QAP methods
@@ -69,8 +80,13 @@ class MRQAP():
         MultipleRegression Quadratic Assignment Procedure
         :return:
         '''
+        directed = 'd' if self.directed else 'i'
+        key = self.npermutations if self.memory.perm else self.n
+        self.profiling('init-{}-{}'.format(directed, key))
         self.init()
+        self.profiling('shuffle-{}-{}'.format(directed, key))
         self._shuffle()
+        self.profiling('end-{}-{}'.format(directed, key))
 
     def _shuffle(self):
         '''
@@ -84,6 +100,9 @@ class MRQAP():
             model = self._newfit()
             self._update_betas(model._results.params)
             self._update_tvalues(model.tvalues)
+            self.Ymod = None
+        gc.collect()
+
 
     def _newfit(self):
         '''
@@ -95,7 +114,10 @@ class MRQAP():
             if k != self.Y.keys()[0]:
                 newv[k] = x
         newdata = pandas.DataFrame(newv)
-        return self._fit(newv, newdata)
+        newfit = self._fit(newv, newdata)
+        del(newdata)
+        del(newv)
+        return newfit
 
 
     #####################################################################################
@@ -115,13 +137,16 @@ class MRQAP():
         self.tvalues[key] = []
 
     def _rmperm(self, duplicates=True):
+        # shuffle = np.random.permutation(self.Ymod.shape[0])
+        # perms = []
+        # if not duplicates:
+        #     while list(shuffle) in perms:
         shuffle = np.random.permutation(self.Ymod.shape[0])
-        if not duplicates:
-            while list(shuffle) in self._perms:
-                shuffle = np.random.permutation(self.Ymod.shape[0])
-            self._perms.append(list(shuffle))
+            # perms.append(list(shuffle))
         np.take(self.Ymod,shuffle,axis=0,out=self.Ymod)
         np.take(self.Ymod,shuffle,axis=1,out=self.Ymod)
+        del(shuffle)
+        # del(perms)
 
     def _update_betas(self, betas):
         for idx,k in enumerate(self.betas.keys()):
@@ -167,46 +192,46 @@ class MRQAP():
         Print the OLS summary
         :return:
         '''
-        utils.printf('')
-        utils.printf('=== Summary OLS (original) ===\n{}'.format(self.model.summary()))
-        utils.printf('')
-        utils.printf('# of Permutations: {}'.format(self.npermutations))
+        utils.printf('', self.logfile)
+        utils.printf('=== Summary OLS (original) ===\n{}'.format(self.model.summary()), self.logfile)
+        utils.printf('', self.logfile)
+        utils.printf('# of Permutations: {}'.format(self.npermutations), self.logfile)
 
     def _summary_betas(self):
         '''
         Summary of beta coefficients
         :return:
         '''
-        utils.printf('')
-        utils.printf('=== Summary beta coefficients ===')
-        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','B.COEFF.','As Large', 'As Small', 'P-VALUE'))
+        utils.printf('', self.logfile)
+        utils.printf('=== Summary beta coefficients ===', self.logfile)
+        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','B.COEFF.','As Large', 'As Small', 'P-VALUE'), self.logfile)
         for k,v in self.betas.items():
             beta = self.model.params[k]
             pstats = self.model.pvalues[k]
             aslarge = sum([1 for c in v if c >= beta]) / float(len(v))
             assmall = sum([1 for c in v if c <= beta]) / float(len(v))
-            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),beta,aslarge,assmall,round(float(pstats),2)))
+            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),beta,aslarge,assmall,round(float(pstats),2)), self.logfile)
 
     def _summary_tvalues(self):
         '''
         Summary t-values
         :return:
         '''
-        utils.printf('')
-        utils.printf('=== Summary T-Values ===')
-        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','T-TEST','As Large', 'As Small'))
+        utils.printf('', self.logfile)
+        utils.printf('=== Summary T-Values ===', self.logfile)
+        utils.printf('{:20s}{:>10s}{:>10s}{:>10s}{:>10s}{:>12s}{:>12s}{:>12s}{:>12s}'.format('INDEPENDENT VAR.','MIN','MEDIAN','MEAN','MAX','STD. DEV.','T-TEST','As Large', 'As Small'), self.logfile)
         for k,v in self.tvalues.items():
             tstats = self.model.tvalues[k]
             aslarge = sum([1 for c in v if c >= tstats]) / float(len(v))
             assmall = sum([1 for c in v if c <= tstats]) / float(len(v))
-            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),round(float(tstats),2),aslarge,assmall))
+            utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),round(float(tstats),2),aslarge,assmall), self.logfile)
 
 
     #####################################################################################
     # Plots
     #####################################################################################
 
-    def plot(self,coef='betas'):
+    def plot(self,coef='betas',fn=None):
         '''
         Plots frequency of pearson's correlation values
         :param coef: string \in {betas, tvalues}
@@ -225,5 +250,12 @@ class MRQAP():
             plt.title(k)
             plt.grid(True)
         plt.suptitle('{} Distribution'.format(coef.upper()))
-        plt.show()
+        plt.tight_layout()
+        plt.savefig(fn)
         plt.close()
+
+
+
+
+
+

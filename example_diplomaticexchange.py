@@ -27,7 +27,7 @@ np.random.seed(473)
 #######################################################################
 # QAP
 #######################################################################
-mrqap = MRQAP(Y=Y, X=X, npermutations=2000, diagonal=False)
+mrqap = MRQAP(Y=Y, X=X, npermutations=2000, diagonal=False, directed=True)
 mrqap.mrqap()
 mrqap.summary()
 mrqap.plot('betas')

@@ -44,12 +44,9 @@ np.random.seed(1)
 # QAP
 #######################################################################
 start_time = time.time()
-mrqap = MRQAP(Y=Y, X=X, npermutations=NPERMUTATIONS, diagonal=False, directed=DIRECTED)
+mrqap = MRQAP(Y=Y, X=X, npermutations=NPERMUTATIONS, diagonal=False, directed=DIRECTED, standarized=False)
 mrqap.mrqap()
 mrqap.summary()
 print("--- {}, {}: {} seconds ---".format('directed' if DIRECTED else 'undirected', NPERMUTATIONS, time.time() - start_time))
 mrqap.plot('betas','results-cg/betas.pdf')
 mrqap.plot('tvalues','results-cg/tvalues.pdf')
-
-print '=== RANKING ==='
-print mrqap.model.params.sort_values(ascending=False)

@@ -15,6 +15,8 @@ from libs import utils
 from libs.profiling import Profiling
 import time
 import gc
+from scipy import stats
+from scipy.stats.mstats import zscore
 
 #######################################################################
 # MRQAP
@@ -27,7 +29,7 @@ class MRQAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False, directed=False, logfile=None, memory=None):
+    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False, directed=False, logfile=None, memory=None, standarized=False):
         '''
         Initialization of variables
         :param Y: numpy array depended variable
@@ -38,7 +40,7 @@ class MRQAP():
         '''
         self.X = X                                  # independent variables: dictionary of numpy.array
         self.Y = Y                                  # dependent variable: dictionary numpy.array
-        self.n = Y.values()[0].shape[0]           # number of nodes
+        self.n = Y.values()[0].shape[0]             # number of nodes
         self.npermutations = npermutations          # number of permutations
         self.diagonal = diagonal                    # False then diagonal is removed
         self.directed = directed                    # directed True, undirected False
@@ -48,6 +50,7 @@ class MRQAP():
         self.betas = collections.OrderedDict()      # betas distribution
         self.tvalues = collections.OrderedDict()    # t-test values
         self.logfile = logfile                      # logfile path name
+        self.standarized = standarized
         self.memory = memory if memory is not None else Profiling()  # to track memory usage
 
     def init(self):
@@ -137,16 +140,10 @@ class MRQAP():
         self.tvalues[key] = []
 
     def _rmperm(self, duplicates=True):
-        # shuffle = np.random.permutation(self.Ymod.shape[0])
-        # perms = []
-        # if not duplicates:
-        #     while list(shuffle) in perms:
         shuffle = np.random.permutation(self.Ymod.shape[0])
-            # perms.append(list(shuffle))
         np.take(self.Ymod,shuffle,axis=0,out=self.Ymod)
         np.take(self.Ymod,shuffle,axis=1,out=self.Ymod)
         del(shuffle)
-        # del(perms)
 
     def _update_betas(self, betas):
         for idx,k in enumerate(self.betas.keys()):
@@ -159,8 +156,13 @@ class MRQAP():
     def _getFlatten(self, original):
         return self._deleteDiagonalFlatten(original)
 
+
     def _deleteDiagonalFlatten(self, original):
         tmp = original.flatten()
+
+        if self.standarized:
+            tmp = zscore(tmp)
+
         if not self.diagonal:
             tmp = np.delete(tmp, [i*(original.shape[0]+1)for i in range(original.shape[0])])
         return tmp
@@ -186,6 +188,7 @@ class MRQAP():
         self._summary_ols()
         self._summary_betas()
         self._summary_tvalues()
+        self._ttest()
 
     def _summary_ols(self):
         '''
@@ -225,6 +228,22 @@ class MRQAP():
             aslarge = sum([1 for c in v if c >= tstats]) / float(len(v))
             assmall = sum([1 for c in v if c <= tstats]) / float(len(v))
             utils.printf('{:20s}{:10f}{:10f}{:10f}{:10f}{:12f}{:12f}{:12f}{:12f}'.format(k,min(v),sorted(v)[len(v)/2],sum(v)/len(v),max(v),round(np.std(v),6),round(float(tstats),2),aslarge,assmall), self.logfile)
+
+    def _ttest(self):
+        utils.printf('')
+        utils.printf('========== T-TEST ==========')
+        utils.printf('{:25s} {:15s} {:15s} {:15s}'.format('IND. VAR.','COEF.','T-STAT','P-VALUE'))
+
+        ts = {}
+        lines = {}
+        for k,vlist in self.betas.items():
+            t = stats.ttest_1samp(vlist,self.model.params[k])
+            ts[k] = abs(round(float(t[0]),6))
+            lines[k] = '{:20s} {:15f} {:15f} {:15f}'.format(k,self.model.params[k],round(float(t[0]),6),round(float(t[1]),6))
+
+        ts = utils.sortDictByValue(ts,True)
+        for t in ts:
+            utils.printf(lines[t[0]])
 
 
     #####################################################################################

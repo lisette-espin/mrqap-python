@@ -237,19 +237,34 @@ class MRQAP():
         :param coef: string \in {betas, tvalues}
         :return:
         '''
-        plt.figure(1)
-        ncols = round(len(self.betas.keys())/2.0)
+        ncols = 3
+        m = len(self.betas.keys())
+        ranges = range(ncols, m, ncols)
+        i = np.searchsorted(ranges, m, 'left')
+        nrows = len(ranges)
+
+        if i == nrows:
+            ranges.append((i+1)*ncols)
+            nrows += 1
+
+        fig = plt.figure(figsize=(8,3*i))
         for idx,k in enumerate(self.betas.keys()):
-            plt.subplot(2,ncols,idx+1)
+            plt.subplot(nrows,ncols,idx+1)
+
             if coef == 'betas':
                 plt.hist(self.betas[k])
             elif coef == 'tvalues':
                 plt.hist(self.tvalues[k])
-            plt.xlabel('regression coefficients')
-            plt.ylabel('frequency')
+
+            plt.xlabel('regression coefficients', fontsize=8)
+            plt.ylabel('frequency', fontsize=8)
             plt.title(k)
             plt.grid(True)
-        plt.suptitle('{} Distribution'.format(coef.upper()))
+
+        for ax in fig.get_axes():
+            ax.tick_params(axis='x', labelsize=5)
+            ax.tick_params(axis='y', labelsize=5)
+
         plt.tight_layout()
         plt.savefig(fn)
         plt.close()

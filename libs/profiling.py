@@ -42,7 +42,7 @@ class Profiling():
 
     def kill_if_necessary(self, vm, sm):
         if vm.percent >= 85. or sm.percent >= 85.:
-            print('OUT OF MEMORY: \n- Virtual Memory: {}\n- Swap Memory: {}'.format(vm, sm))
+            print('FULL MEMORY: \n- Virtual Memory: {}\n- Swap Memory: {}'.format(vm, sm))
 
     def memory_cpu_usage(self, key):
         cpu = psutil.cpu_percent(interval=None)

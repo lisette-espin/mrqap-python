@@ -60,7 +60,8 @@ def main(directed):
     #######################################################################
     # Data Matrices
     #######################################################################
-    nnodes = np.logspace(1,7,num=7-1, endpoint=False)
+    #nnodes = np.logspace(1,7,num=7-1, endpoint=False)
+    nnodes = np.logspace(1,5,num=5-1, endpoint=False)
     for n in nnodes:
         n = int(n)
         fn = 'data-synthetic-ernos-renyi/nodes{}_edgeprob{}_<var>.dat'.format(n,EDGEPROB)

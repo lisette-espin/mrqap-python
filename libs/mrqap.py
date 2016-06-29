@@ -46,7 +46,7 @@ class MRQAP():
         self.directed = directed                    # directed True, undirected False
         self.data = None                            # Pandas DataFrame
         self.model = None                           # OLS Model y ~ x1 + x2 + x3 (original)
-        self.v = None                               # vectorized matrices, flatten variables with no diagonal
+        self.v = collections.OrderedDict()          # vectorized matrices, flatten variables with no diagonal
         self.betas = collections.OrderedDict()      # betas distribution
         self.tvalues = collections.OrderedDict()    # t-test values
         self.logfile = logfile                      # logfile path name
@@ -59,7 +59,7 @@ class MRQAP():
         Also, the betas and tvalues dictionaries are initialized (key:independent variables, value:[])
         :return:
         '''
-        self.v = {self.Y.keys()[0]:self._getFlatten(self.Y.values()[0])}
+        self.v[self.Y.keys()[0]] = self._getFlatten(self.Y.values()[0])
         self._initCoefficients(INTERCEPT)
         for k,x in self.X.items():
             if k == self.Y.keys()[0]:
@@ -68,7 +68,7 @@ class MRQAP():
             self.v[k] = self._getFlatten(x)
             self._initCoefficients(k)
         self.data = pandas.DataFrame(self.v)
-        self.model = self._fit(self.v, self.data)
+        self.model = self._fit(self.v.keys(), self.data)
         del(self.X)
 
     def profiling(self, key):
@@ -112,12 +112,13 @@ class MRQAP():
         Generates a new OLS fit model
         :return:
         '''
-        newv = {self.Y.keys()[0]:self._getFlatten(self.Ymod)}
+        newv = collections.OrderedDict()
+        newv[self.Y.keys()[0]] = self._getFlatten(self.Ymod)
         for k,x in self.v.items():
             if k != self.Y.keys()[0]:
                 newv[k] = x
         newdata = pandas.DataFrame(newv)
-        newfit = self._fit(newv, newdata)
+        newfit = self._fit(newv.keys(), newdata)
         del(newdata)
         del(newv)
         return newfit
@@ -127,13 +128,17 @@ class MRQAP():
     # Handlers
     #####################################################################################
 
-    def _fit(self, v, data):
+    def _fit(self, keys, data):
         '''
         Fitting OLS model
         v a dictionary with all variables.
         :return:
         '''
-        return ols('{} ~ {}'.format(self.Y.keys()[0], ' + '.join([k for k in v.keys() if k != self.Y.keys()[0]])), data).fit()
+        if self.standarized:
+            data = data.apply(lambda x: (x - np.mean(x)) / (np.std(x)), axis=0) #axis: 0 to each column, 1 to each row
+
+        formula = '{} ~ {}'.format(self.Y.keys()[0], ' + '.join([k for k in keys if k != self.Y.keys()[0]]))
+        return ols(formula, data).fit()
 
     def _initCoefficients(self, key):
         self.betas[key] = []
@@ -159,10 +164,6 @@ class MRQAP():
 
     def _deleteDiagonalFlatten(self, original):
         tmp = original.flatten()
-
-        if self.standarized:
-            tmp = zscore(tmp)
-
         if not self.diagonal:
             tmp = np.delete(tmp, [i*(original.shape[0]+1)for i in range(original.shape[0])])
         return tmp
@@ -232,14 +233,14 @@ class MRQAP():
     def _ttest(self):
         utils.printf('')
         utils.printf('========== T-TEST ==========')
-        utils.printf('{:25s} {:15s} {:15s} {:15s}'.format('IND. VAR.','COEF.','T-STAT','P-VALUE'))
+        utils.printf('{:25s} {:25s} {:25s} {:25s}'.format('IND. VAR.','COEF.','T-STAT','P-VALUE'))
 
         ts = {}
         lines = {}
         for k,vlist in self.betas.items():
             t = stats.ttest_1samp(vlist,self.model.params[k])
             ts[k] = abs(round(float(t[0]),6))
-            lines[k] = '{:20s} {:15f} {:15f} {:15f}'.format(k,self.model.params[k],round(float(t[0]),6),round(float(t[1]),6))
+            lines[k] = '{:20s} {:25f} {:25f} {:25f}'.format(k,self.model.params[k],round(float(t[0]),6),round(float(t[1]),6))
 
         ts = utils.sortDictByValue(ts,True)
         for t in ts:

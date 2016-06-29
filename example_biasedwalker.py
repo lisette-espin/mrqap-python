@@ -44,7 +44,7 @@ np.random.seed(1)
 # QAP
 #######################################################################
 start_time = time.time()
-mrqap = MRQAP(Y=Y, X=X, npermutations=NPERMUTATIONS, diagonal=False, directed=DIRECTED, standarized=False)
+mrqap = MRQAP(Y=Y, X=X, npermutations=NPERMUTATIONS, diagonal=False, directed=DIRECTED, standarized=True)
 mrqap.mrqap()
 mrqap.summary()
 print("--- {}, {}: {} seconds ---".format('directed' if DIRECTED else 'undirected', NPERMUTATIONS, time.time() - start_time))

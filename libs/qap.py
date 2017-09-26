@@ -21,7 +21,7 @@ class QAP():
     # Constructor and Init
     #####################################################################################
 
-    def __init__(self, Y=None, X=None, npermutations=-1):
+    def __init__(self, Y=None, X=None, npermutations=-1, diagonal=False):
         '''
         Initialization of variables
         :param Y: numpy array depended variable
@@ -31,6 +31,7 @@ class QAP():
         self.Y = Y
         self.X = X
         self.npermutations = npermutations
+        self.diagonal = diagonal
         self.beta = None
         self.Ymod = None
         self.betas = []
@@ -71,9 +72,12 @@ class QAP():
         :param show: if True then shows pearson's correlation and p-value.
         :return:
         '''
-        xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
-        yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
-        pc = pearsonr(xflatten, yflatten)
+        if not self.diagonal:
+            xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
+            yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
+            pc = pearsonr(xflatten, yflatten)
+        else:
+            pc = pearsonr(x.flatten(), y.flatten())
         if show:
             utils.printf('Pearson Correlation: {}'.format(pc[0]))
             utils.printf('p-value: {}'.format(pc[1]))
@@ -135,12 +139,18 @@ class QAP():
     #####################################################################################
 
     def stats(self, x, y):
-        xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
-        yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
-        p = np.corrcoef(xflatten,yflatten)
-        utils.printf('Pearson\'s correlation:\n{}'.format(p))
-        utils.printf('Z-Test:{}'.format(ztest(xflatten, yflatten)))
-        utils.printf('T-Test:{}'.format(ttest_ind(xflatten, yflatten)))
+        if not self.diagonal:
+            xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])
+            yflatten = np.delete(y, [i*(y.shape[0]+1)for i in range(y.shape[0])])
+            p = np.corrcoef(xflatten,yflatten)
+            utils.printf('Pearson\'s correlation:\n{}'.format(p))
+            utils.printf('Z-Test:{}'.format(ztest(xflatten, yflatten)))
+            utils.printf('T-Test:{}'.format(ttest_ind(xflatten, yflatten)))
+        else:
+            p = np.corrcoef(x, y)
+            utils.printf('Pearson\'s correlation:\n{}'.format(p))
+            utils.printf('Z-Test:{}'.format(ztest(x, y)))
+            utils.printf('T-Test:{}'.format(ttest_ind(x, y)))
 
     def ols(self, x, y):
         xflatten = np.delete(x, [i*(x.shape[0]+1)for i in range(x.shape[0])])

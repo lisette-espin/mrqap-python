@@ -11,7 +11,7 @@ import sys, os
 # FUNCTIONS
 ######################################################################################################################
 def printf(msg, logfile=None):
-    strtowrite = "[{}] {}".format(datetime.now(), msg)
+    strtowrite = msg if logfile is None else "[{}] {}".format(datetime.now(), msg)
     print(strtowrite)
     if logfile is not None:
         with open(logfile, 'a') as f:

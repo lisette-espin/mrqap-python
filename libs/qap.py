@@ -158,4 +158,4 @@ class QAP():
         xflatten = sm.add_constant(xflatten)
         model = sm.OLS(yflatten,xflatten)
         results = model.fit()
-        print results.summary()
+        print(results.summary())

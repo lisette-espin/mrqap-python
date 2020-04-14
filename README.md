@@ -1,4 +1,4 @@
-# MRQAP Implementation in Python
+# MRQAP Implementation in Python 2
 Multiple Regression Quadratic Assignment Procedure
 
 - This project contains 5 examples:

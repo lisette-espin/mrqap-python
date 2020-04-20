@@ -14,4 +14,6 @@ Multiple Regression Quadratic Assignment Procedure
   - 5 of them (.txt) contain relationship values (e.g., nodeA nodeB valueAB)
 
 
-Some examples of MRQAP in R can be found [here](https://github.com/lisette-espin/mrqap-r "MRQAP in R").
+### Other versions:
+- Python3 [here](https://github.com/lisette-espin/mrqap-python/tree/p3).
+- R [here](https://github.com/lisette-espin/mrqap-r "MRQAP in R").
